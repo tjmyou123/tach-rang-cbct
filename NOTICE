@@ -1,0 +1,81 @@
+TachRang — Tách răng tự động từ ảnh CBCT
+Copyright 2026 tjmyou123 (https://github.com/tjmyou123/tach-rang-cbct)
+
+Phần mềm này được phát hành theo Apache License, Version 2.0 (xem file LICENSE).
+Khi phân phối lại (mã nguồn, bản portable hay bộ cài), phải kèm file LICENSE và
+file NOTICE này (Apache 2.0 §4).
+
+================================================================================
+Thành phần bên thứ ba được TachRang dùng lại — ghi công theo yêu cầu giấy phép
+================================================================================
+
+1. DentalSegmentator — model nnU-Net phân đoạn CT/CBCT nha khoa
+   Tác giả: Gauthier Dot, Laurent Gajny (Université Paris Cité, AP-HP,
+            Arts-et-Métiers) và Kitware SAS (R. Fenioux, T. Pelletier)
+   Mã 3D Slicer extension: https://github.com/gaudot/SlicerDentalSegmentator
+            Copyright (c) 2024, Gauthier DOT — Apache License 2.0
+   Trọng số: "DentalSegmentator nnU-Net pretrained model for CBCT image
+            segmentation", Zenodo, https://doi.org/10.5281/zenodo.10829675
+            Giấy phép Creative Commons Attribution 4.0 (CC BY 4.0)
+            https://creativecommons.org/licenses/by/4.0/
+            Trọng số được dùng NGUYÊN BẢN, không sửa đổi.
+   Trích dẫn: Dot G, Chaurasia A, Dubois G, Savoldelli C, Haghighat S,
+            Azimian S, Taramsari AR, Sivaramakrishnan G, Issa J, Dubey A,
+            Schouman T, Gajny L. DentalSegmentator: Robust open source deep
+            learning-based CT and CBCT image segmentation. Journal of Dentistry
+            147 (2024) 105130. https://doi.org/10.1016/j.jdent.2024.105130
+
+2. TotalSegmentator — task "teeth" và "craniofacial_structures"
+   Tác giả: Jakob Wasserthal và cộng sự, Clinic of Radiology and Nuclear
+            Medicine, University Hospital Basel, Switzerland
+   Mã + trọng số: https://github.com/wasserth/TotalSegmentator — Apache License 2.0
+            (hai task trên thuộc nhóm "openly available for any usage")
+   Trích dẫn: Wasserthal J, Breit H-C, Meyer MT, Pradella M, Hinck D,
+            Sauter AW, Heye T, Boll DT, Cyriac J, Yang S, Bach M, Segeroth M.
+            TotalSegmentator: Robust Segmentation of 104 Anatomic Structures in
+            CT Images. Radiology: Artificial Intelligence 5(5) (2023) e230024.
+            https://doi.org/10.1148/ryai.230024
+   Task "teeth" dựa trên bộ dữ liệu ToothFairy3:
+            Bolelli F, et al. Segmenting Maxillofacial Structures in CBCT
+            Volumes. CVPR 2025.
+   Lưu ý: TachRang tắt tính năng gửi thống kê sử dụng ẩn danh của
+            TotalSegmentator (send_usage_stats = false).
+
+3. UniversalLabDentalSegmentator — model nnU-Net (răng vĩnh viễn + răng sữa)
+   Tác giả: DCBIA-OrthoLab (University of Michigan / UNC), extension
+            Slicer Automated Dental Tools, module BatchDentalSegmentator
+   https://github.com/DCBIA-OrthoLab/SlicerAutomatedDentalTools — Apache License 2.0
+   Tài trợ: NIDCR R01DE024450
+
+4. nnU-Net v2 (nnunetv2, batchgenerators, dynamic_network_architectures)
+   Copyright German Cancer Research Center (DKFZ), Division of Medical Image
+   Computing — Apache License 2.0. https://github.com/MIC-DKFZ/nnUNet
+   Trích dẫn: Isensee F, Jaeger PF, Kohl SAA, Petersen J, Maier-Hein KH.
+            nnU-Net: a self-configuring method for deep learning-based
+            biomedical image segmentation. Nature Methods 18 (2021) 203–211.
+            https://doi.org/10.1038/s41592-020-01008-z
+
+5. Thư viện nền (chỉ liên kết/gọi, không sửa đổi)
+   - PyTorch                 BSD-3-Clause        https://pytorch.org
+   - NVIDIA CUDA/cuDNN runtime (nvidia-* wheels)  NVIDIA Software License
+                             Agreement — phân phối lại theo điều khoản
+                             redistributable của NVIDIA
+   - SimpleITK               Apache License 2.0  https://simpleitk.org
+   - VTK                     BSD-3-Clause        https://vtk.org
+   - Qt 6 / PySide6 / shiboken6   LGPL-3.0        https://www.qt.io
+                             TachRang liên kết động với Qt; các file Qt không
+                             bị sửa đổi và người dùng có thể thay thế chúng.
+                             Mã nguồn Qt: https://code.qt.io
+   - Open3D                  MIT                 https://www.open3d.org
+   - NumPy, SciPy, scikit-image, psutil   BSD-3-Clause
+   - nibabel                 MIT
+   - Inno Setup (đóng gói)   Inno Setup License  https://jrsoftware.org
+
+6. Nhãn hiệu
+   3Shape, OrthoAnalyzer, Dental Desktop là nhãn hiệu của 3Shape A/S.
+   TachRang không liên kết với, không được tài trợ hay xác nhận bởi 3Shape A/S,
+   NVIDIA, The Qt Company hay bất kỳ chủ sở hữu thành phần nào kể trên.
+
+================================================================================
+TachRang không phải thiết bị y tế đã đăng ký. Kết quả chỉ để hỗ trợ lập kế hoạch
+và nghiên cứu; bác sĩ chịu trách nhiệm kiểm tra trước khi sử dụng lâm sàng.

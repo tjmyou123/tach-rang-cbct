@@ -126,6 +126,10 @@ def main():
     print("[2/6] Chép mã nguồn tachrang/ …")
     robocopy(GOC / "tachrang", dich / "tachrang", loai_dir=["__pycache__"], loai_file=["*.pyc"])
     shutil.copy2(GOC / "requirements.txt", dich / "requirements.txt")
+    # Giấy phép + ghi công bên thứ ba (Apache 2.0 §4 bắt buộc kèm khi phân phối)
+    for ten in ("LICENSE", "NOTICE", "README.md"):
+        if (GOC / ten).is_file():
+            shutil.copy2(GOC / ten, dich / ten)
 
     # ── 3. Model AI ───────────────────────────────────────────────────
     if a.khong_models:
@@ -139,6 +143,19 @@ def main():
         ts = Path.home() / ".totalsegmentator"
         if ts.is_dir():
             robocopy(ts, dich / "models" / "totalseg_weights")
+            # config.json chép theo mang id máy dev + prediction_counter -> viết lại:
+            # id mới, TẮT thống kê sử dụng ẩn danh ngay từ khi cài (không gửi gì đi)
+            import json
+            import random
+            import string
+            cfg_ts = dich / "models" / "totalseg_weights" / "config.json"
+            cfg_ts.write_text(json.dumps({
+                "totalseg_id": "totalseg_" + "".join(random.choices(
+                    string.ascii_uppercase + string.digits, k=8)),
+                "send_usage_stats": False,
+                "prediction_counter": 0,
+                "statistics_disclaimer_shown": True,
+            }, indent=4), encoding="utf-8")
         else:
             print("    [!] Không thấy ~/.totalsegmentator — máy đích sẽ tự tải weights teeth/cranio.")
 

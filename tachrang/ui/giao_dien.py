@@ -15,6 +15,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import traceback
 import warnings
 from pathlib import Path
@@ -467,9 +468,33 @@ def run_gui():
             default_out.mkdir(parents=True, exist_ok=True)
             self._default_in = default_in
             self.in_edit = QtWidgets.QLineEdit("")
-            self.in_edit.setPlaceholderText("Chọn thư mục DICOM của MỘT bệnh nhân...")
+            self.in_edit.setPlaceholderText(
+                "Chọn thư mục DICOM — hoặc kéo-thả thư mục/file vào cửa sổ...")
             self.out_edit = QtWidgets.QLineEdit(str(default_out))
             tieu_de("①  Dữ liệu")
+            # Mở lại dự án cũ chỉ một cú bấm (kiểu Blue Sky Plan / RealGUIDE)
+            hang_da = QtWidgets.QHBoxLayout()
+            self.btn_mo_du_an = QtWidgets.QPushButton("Mở dự án…")
+            self.btn_mo_du_an.setToolTip(
+                "Mở file dự án .tachrang — nạp lại DICOM + kết quả + scan của ca chỉ bằng 1 file.\n"
+                "File dự án được tự tạo trong <thư mục kết quả>\\du_an\\ mỗi khi nạp một ca.")
+            self.btn_mo_du_an.clicked.connect(self._mo_du_an_dialog)
+            nut_gd = QtWidgets.QToolButton()
+            nut_gd.setText("Gần đây ▾")
+            nut_gd.setToolTip("Danh sách dự án đã mở gần đây — bấm để mở lại ngay.")
+            nut_gd.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
+            self._menu_gan_day = QtWidgets.QMenu(nut_gd)
+            self._menu_gan_day.setToolTipsVisible(True)
+            self._menu_gan_day.aboutToShow.connect(self._dung_menu_gan_day)
+            nut_gd.setMenu(self._menu_gan_day)
+            self.btn_luu_du_an = QtWidgets.QPushButton("Lưu dự án")
+            self.btn_luu_du_an.setToolTip(
+                "Lưu file .tachrang ra nơi tùy chọn (USB, Desktop...) để mở lại/chia sẻ ca này.")
+            self.btn_luu_du_an.clicked.connect(self.luu_du_an)
+            for w in (self.btn_mo_du_an, nut_gd, self.btn_luu_du_an):
+                hang_da.addWidget(w)
+            hang_da.addStretch(1)
+            lv.addLayout(hang_da)
             folder_row("Thư mục DICOM (mỗi lần 1 bệnh nhân) — chọn xong ảnh hiện ngay:",
                        self.in_edit).clicked.connect(lambda: self._pick(self.in_edit))
             folder_row("Thư mục kết quả (output):", self.out_edit).clicked.connect(
@@ -1057,6 +1082,14 @@ def run_gui():
             self.vtk_widget.GetRenderWindow().Render()
             iren.Initialize()
             QtCore.QTimer.singleShot(200, self.detect_gpu)
+            # Kéo-thả thông minh: thả thư mục DICOM / file .tachrang / .nii.gz / scan vào cửa sổ
+            self.setAcceptDrops(True)
+            self._scan_cho = None          # scan chờ điền lại sau khi mở dự án
+            ds_gd = self._ds_gan_day()
+            if ds_gd:
+                QtCore.QTimer.singleShot(400, lambda: self.statusBar().showMessage(
+                    f"Có {len(ds_gd)} dự án gần đây — bấm 'Gần đây ▾' để mở lại chỉ một cú bấm",
+                    10000))
 
         # ── Tiện ích ──────────────────────────────────────────────────────
         def _pick(self, edit):
@@ -1158,6 +1191,14 @@ def run_gui():
                 self.scan_edit_tren.setText("")
                 self.scan_edit_duoi.setText("")
                 self.lb_scan.setText("")
+            # Mở từ file dự án: điền lại đường dẫn scan đã ghi trong dự án
+            cho = getattr(self, "_scan_cho", None)
+            self._scan_cho = None
+            if cho and cho.get("case") == d["case"]:
+                if cho.get("tren"):
+                    self.scan_edit_tren.setText(cho["tren"])
+                if cho.get("duoi"):
+                    self.scan_edit_duoi.setText(cho["duoi"])
             # DICOM mới -> bỏ bản đồ nhãn của ca cũ (tránh lệch kích thước)
             self.lab = None
             self._case_edit = None
@@ -1201,11 +1242,272 @@ def run_gui():
             # Ca này đã tách trước đó? -> mở luôn kết quả để kiểm tra/sửa tiếp
             self._ca_hien = ""
             self.refresh_cases(auto_render=True)
+            self._luu_du_an_tu_dong()   # cập nhật file .tachrang để 'Gần đây' mở lại 1 cú bấm
 
         def _bat_tat_ct3d(self, on):
             if self.volume_actor is not None:
                 self.volume_actor.SetVisibility(bool(on))
                 self.vtk_widget.GetRenderWindow().Render()
+
+        # ── Dự án (.tachrang) + Gần đây + kéo-thả thông minh ────────────
+        # Kiểu Blue Sky Plan / RealGUIDE: 1 file dự án nhẹ (JSON) trỏ tới DICOM,
+        # thư mục kết quả và scan — mở lại toàn bộ phiên làm việc bằng 1 cú bấm.
+        # Dữ liệu nặng vẫn nằm trong thư mục kết quả; file dự án chỉ là "con trỏ".
+        def _du_an_data(self):
+            return {
+                "phan_mem": "TachRang", "phien_ban": 1,
+                "case": self._ct_case or self._case_edit or "",
+                "dicom_dir": self._da_nap or self.in_edit.text().strip(),
+                "out_dir": self.out_edit.text().strip(),
+                "scan_tren": self.scan_edit_tren.text().strip(),
+                "scan_duoi": self.scan_edit_duoi.text().strip(),
+                "luu_luc": time.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+
+        def _duong_du_an(self, case):
+            return Path(self.out_edit.text().strip() or ".") / "du_an" / f"{case}.tachrang"
+
+        def _luu_du_an_tu_dong(self):
+            """Ghi/cập nhật file dự án trong <kết quả>/du_an/ — âm thầm, không hỏi."""
+            d = self._du_an_data()
+            if not d["case"] or not d["out_dir"]:
+                return
+            try:
+                f = self._duong_du_an(d["case"])
+                f.parent.mkdir(parents=True, exist_ok=True)
+                tam = f.with_name(f.name + ".tam")
+                tam.write_text(json.dumps(d, ensure_ascii=False, indent=1), encoding="utf-8")
+                os.replace(tam, f)
+                self._them_gan_day(str(f))
+            except Exception:
+                pass                      # dự án chỉ là tiện ích — không được làm phiền
+
+        def luu_du_an(self):
+            """Lưu file .tachrang ra nơi tùy chọn để chia sẻ/mở lại ca bằng 1 file."""
+            d = self._du_an_data()
+            if not d["case"]:
+                QtWidgets.QMessageBox.information(
+                    self, "Chưa có ca",
+                    "Hãy nạp DICOM hoặc mở một ca có kết quả trước khi lưu dự án.")
+                return
+            self._luu_du_an_tu_dong()
+            duong, _ = QtWidgets.QFileDialog.getSaveFileName(
+                self, "Lưu file dự án", str(self._duong_du_an(d["case"])),
+                "Dự án TachRang (*.tachrang)")
+            if not duong:
+                return
+            try:
+                Path(duong).write_text(json.dumps(d, ensure_ascii=False, indent=1),
+                                       encoding="utf-8")
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(self, "Lỗi", f"Không ghi được file:\n{e}")
+                return
+            self._them_gan_day(duong)
+            self.log_write(f"[Dự án] Đã lưu {duong}\n")
+            self.statusBar().showMessage(f"Đã lưu dự án: {duong}")
+
+        def mo_du_an(self, duong):
+            """Mở file dự án .tachrang: DICOM + kết quả + scan trở lại bằng 1 thao tác."""
+            f = Path(duong)
+            try:
+                data = json.loads(f.read_text(encoding="utf-8"))
+                case = str(data["case"])
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(
+                    self, "Không mở được dự án",
+                    f"File dự án hỏng hoặc không đúng định dạng:\n{f}\n\n{e}")
+                return False
+            out_dir = str(data.get("out_dir") or "")
+            # File nằm trong <kết quả>/du_an/ -> tự suy ra out kể cả khi đã dời thư mục
+            if not Path(out_dir).is_dir() and f.parent.name == "du_an":
+                out_dir = str(f.parent.parent)
+            if Path(out_dir).is_dir():
+                self.out_edit.setText(out_dir)
+                self.settings.setValue("out_dir", out_dir)
+            self._them_gan_day(str(f))
+            scan = {h: str(data.get(f"scan_{h}") or "") for h in ("tren", "duoi")}
+            scan = {h: p for h, p in scan.items() if p and Path(p).is_file()}
+            dicom = str(data.get("dicom_dir") or "")
+            if dicom and Path(dicom).is_dir():
+                dicom = str(Path(dicom))
+                if dicom == (self._da_nap or ""):      # DICOM này đang mở sẵn
+                    for h, p in scan.items():
+                        (self.scan_edit_tren if h == "tren"
+                         else self.scan_edit_duoi).setText(p)
+                    self._ca_hien = ""
+                    self.refresh_cases(auto_render=True)
+                    return True
+                self._scan_cho = {"case": case, **scan}
+                self.in_edit.setText(dicom)
+                self.settings.setValue("in_dir", dicom)
+                self.log_write(f"[Dự án] Mở {f.name}: nạp DICOM + kết quả ca {case}\n")
+                self.nap_dicom(dicom)      # xong sẽ tự nạp kết quả + scan đã căn
+                return True
+            # Mất thư mục DICOM gốc: vẫn mở phần kết quả (CT nền lấy từ staged_inputs)
+            for h, p in scan.items():
+                (self.scan_edit_tren if h == "tren" else self.scan_edit_duoi).setText(p)
+            self._ct_case = case
+            self._ca_hien = ""
+            self.refresh_cases(auto_render=True)
+            self.log_write(f"[Dự án] {f.name}: thư mục DICOM gốc không còn "
+                           f"({dicom or 'chưa ghi'}) — mở phần kết quả của ca {case}.\n")
+            self.statusBar().showMessage(
+                f"Dự án {case}: DICOM gốc không còn — đã mở phần kết quả")
+            return True
+
+        def _mo_du_an_dialog(self):
+            ds = self._ds_gan_day()
+            bat_dau = (str(Path(ds[0]).parent) if ds
+                       else str(Path(self.out_edit.text().strip() or ".") / "du_an"))
+            f, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self, "Mở dự án TachRang", bat_dau,
+                "Dự án TachRang (*.tachrang);;Tất cả (*)")
+            if f:
+                self.mo_du_an(f)
+
+        # Danh sách dự án gần đây (QSettings) — chỉ giữ file còn tồn tại
+        def _ds_gan_day(self):
+            v = self.settings.value("du_an_gan_day", [])
+            if isinstance(v, str):
+                v = [v] if v else []
+            return [p for p in (v or []) if Path(p).is_file()]
+
+        def _them_gan_day(self, duong):
+            duong = str(Path(duong))
+            ds = [p for p in self._ds_gan_day()
+                  if p.casefold() != duong.casefold()]
+            self.settings.setValue("du_an_gan_day", [duong] + ds[:9])
+
+        def _dung_menu_gan_day(self):
+            m = self._menu_gan_day
+            m.clear()
+            ds = self._ds_gan_day()
+            if not ds:
+                m.addAction("(Chưa có dự án nào — nạp một ca là tự có)").setEnabled(False)
+                return
+            for p in ds:
+                p = Path(p)
+                ten = p.name[:-9] if p.name.endswith(".tachrang") else p.name
+                ghi = ""
+                try:
+                    d = json.loads(p.read_text(encoding="utf-8"))
+                    ten = d.get("case") or ten
+                    out = Path(d.get("out_dir") or p.parent.parent)
+                    if (out / "labelmaps" / f"{ten}.lam-do.nii.gz").is_file():
+                        ghi = "   • có bản làm dở"
+                    elif (out / "stl" / ten).is_dir() and any((out / "stl" / ten).glob("*.stl")):
+                        ghi = "   • có kết quả"
+                except Exception:
+                    pass
+                a = m.addAction(f"{ten}{ghi}")
+                a.setToolTip(str(p))
+                a.triggered.connect(lambda checked=False, dd=str(p): self.mo_du_an(dd))
+            m.addSeparator()
+            m.addAction("Xóa danh sách").triggered.connect(
+                lambda checked=False: self.settings.setValue("du_an_gan_day", []))
+
+        # Kéo-thả: nhận mọi thứ, tự đoán loại
+        def dragEnterEvent(self, e):
+            if e.mimeData().hasUrls():
+                e.acceptProposedAction()
+
+        def dropEvent(self, e):
+            urls = [u.toLocalFile() for u in e.mimeData().urls() if u.toLocalFile()]
+            e.acceptProposedAction()
+            for u in urls[:4]:              # tối đa 4 mục/lần (vd scan trên + dưới)
+                self.nap_thong_minh(u)
+
+        def nap_thong_minh(self, duong):
+            """Nhận 1 đường dẫn bất kỳ (kéo-thả) và tự đoán phải làm gì."""
+            p = Path(duong)
+            if p.is_dir():
+                return self._nap_thu_muc_thong_minh(p)
+            ten = p.name.lower()
+            if ten.endswith(".tachrang"):
+                return self.mo_du_an(p)
+            if ten.endswith(".dcm"):
+                self.in_edit.setText(str(p.parent))
+                self.nap_dicom(str(p.parent))
+                return True
+            if ten.endswith((".nii.gz", ".nii")):
+                return self.mo_file_nhan(str(p))
+            if ten.endswith((".stl", ".ply", ".obj")):
+                return self._nhan_scan_tha(p)
+            QtWidgets.QMessageBox.information(
+                self, "Không nhận dạng được",
+                f"{p.name}\n\nNhận: thư mục DICOM, file .dcm, dự án .tachrang,\n"
+                "bản đồ nhãn .nii.gz, scan hàm .stl/.ply/.obj")
+            return False
+
+        def _co_dicom(self, d):
+            return next(iter(Path(d).rglob("*.dcm")), None) is not None
+
+        def _nap_thu_muc_thong_minh(self, d):
+            d = Path(d)
+            # 1) thư mục có file dự án -> mở dự án
+            da = sorted(d.glob("*.tachrang"))
+            if len(da) == 1:
+                return self.mo_du_an(da[0])
+            # 2) thư mục kết quả (có labelmaps/ hoặc stl/) -> đặt làm output
+            if (d / "labelmaps").is_dir() or (d / "stl").is_dir():
+                self.out_edit.setText(str(d))
+                self.settings.setValue("out_dir", str(d))
+                self._ca_hien = ""
+                self.refresh_cases(auto_render=True)
+                self.statusBar().showMessage(f"Đã đặt thư mục kết quả: {d}")
+                return True
+            # 3) DICOM ngay trong thư mục -> nạp luôn
+            if any(d.glob("*.dcm")):
+                if self.cb_seg.isChecked():
+                    self.in_edit.setText(str(d))
+                    return True
+                self.in_edit.setText(str(d))
+                self.settings.setValue("in_dir", str(d))
+                self.nap_dicom(str(d))
+                return True
+            # 4) thư mục cha chứa nhiều ca -> cho chọn 1 ca
+            ca = [s for s in sorted(d.iterdir()) if s.is_dir() and self._co_dicom(s)]
+            if len(ca) == 1:
+                return self._nap_thu_muc_thong_minh(ca[0])
+            if ca:
+                ten, ok = QtWidgets.QInputDialog.getItem(
+                    self, "Chọn ca", f"Thư mục này chứa {len(ca)} ca — chọn một để mở:",
+                    [c.name for c in ca], 0, False)
+                if ok and ten:
+                    return self._nap_thu_muc_thong_minh(d / ten)
+                return False
+            # 5) .dcm nằm sâu hơn -> nạp thư mục chứa nó; hết cách thì cứ thử đọc DICOM
+            hit = next(iter(d.rglob("*.dcm")), None)
+            muc = hit.parent if hit else d
+            self.in_edit.setText(str(muc))
+            self.nap_dicom(str(muc))    # không phải DICOM sẽ báo lỗi dễ hiểu
+            return True
+
+        def _nhan_scan_tha(self, p):
+            """Thả file scan: đoán hàm theo tên file, không đoán được thì hỏi."""
+            p = Path(p)
+            ten = p.stem.lower()
+            ham = ("tren" if any(k in ten for k in ("maxil", "upper", "tren", "ham_tren", "_u"))
+                   else "duoi" if any(k in ten for k in ("mandib", "lower", "duoi", "ham_duoi", "_l"))
+                   else None)
+            if ham is None:
+                box = QtWidgets.QMessageBox(self)
+                box.setWindowTitle("Scan hàm nào?")
+                box.setText(f"{p.name}\n\nĐây là scan hàm TRÊN hay hàm DƯỚI?")
+                b_tren = box.addButton("Hàm trên", QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+                b_duoi = box.addButton("Hàm dưới", QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+                box.addButton("Hủy", QtWidgets.QMessageBox.ButtonRole.RejectRole)
+                box.exec()
+                nut = box.clickedButton()
+                ham = "tren" if nut is b_tren else "duoi" if nut is b_duoi else None
+                if ham is None:
+                    return False
+            (self.scan_edit_tren if ham == "tren" else self.scan_edit_duoi).setText(str(p))
+            self.settings.setValue("thu_muc_scan", str(p.parent))
+            self._hien_scan_tho(str(p))
+            self.statusBar().showMessage(
+                f"Đã nạp scan hàm {'trên' if ham == 'tren' else 'dưới'}: {p.name}")
+            return True
 
         # ── Scan hàm: căn tự động với răng CBCT ─────────────────────────
         def _chon_scan(self, ham):
@@ -3823,20 +4125,23 @@ def run_gui():
             self.statusBar().showMessage("Đã khôi phục bản làm dở")
             return True
 
-        def mo_file_nhan(self):
-            """Nạp file nhãn .nii.gz đã lưu trước (bất kỳ tên) để chỉnh tiếp."""
+        def mo_file_nhan(self, duong=None):
+            """Nạp file nhãn .nii.gz đã lưu trước (bất kỳ tên) để chỉnh tiếp.
+            duong=None -> hỏi bằng hộp thoại; có sẵn (kéo-thả) -> nạp thẳng."""
             if self.lab is None or self._case_edit is None:
                 QtWidgets.QMessageBox.information(
                     self, "Chưa có ca", "Hãy mở một ca có kết quả tách trước, rồi nạp file nhãn.")
                 return False
-            out = Path(self.out_edit.text().strip() or ".")
-            bat_dau = str(self.settings.value("thu_muc_nhan", str(out / "labelmaps")))
-            duong, _ = QtWidgets.QFileDialog.getOpenFileName(
-                self, "Mở file nhãn đã lưu", bat_dau,
-                "Bản đồ nhãn (*.nii.gz *.nii);;Tất cả (*)")
-            if not duong:
-                return False
-            self.settings.setValue("thu_muc_nhan", str(Path(duong).parent))
+            if not duong or isinstance(duong, bool):   # nút bấm truyền checked=False
+                out = Path(self.out_edit.text().strip() or ".")
+                bat_dau = str(self.settings.value("thu_muc_nhan", str(out / "labelmaps")))
+                duong, _ = QtWidgets.QFileDialog.getOpenFileName(
+                    self, "Mở file nhãn đã lưu", bat_dau,
+                    "Bản đồ nhãn (*.nii.gz *.nii);;Tất cả (*)")
+                if not duong:
+                    return False
+                self.settings.setValue("thu_muc_nhan", str(Path(duong).parent))
+            duong = str(duong)
             import SimpleITK as sitk
             try:
                 lab_moi = sitk.GetArrayFromImage(sitk.ReadImage(duong)).astype(np.int16)
@@ -3959,6 +4264,7 @@ def run_gui():
                     self.luu_nhap(tu_dong=True)
                 except Exception:
                     pass
+            self._luu_du_an_tu_dong()      # ghi lại dự án (kèm đường dẫn scan mới nhất)
             if self._loader is not None and self._loader.isRunning():
                 self._loader.wait(10000)
             if self.proc is not None:
@@ -3998,6 +4304,11 @@ def run_gui():
     win = MainWindow()
     win.log_write(f"[log] {log_file}\n")
     win.show()
+    # Mở kèm file dự án: `tachrang duong\den\ca.tachrang` (hoặc double-click nếu đã gán đuôi)
+    for arg in sys.argv[1:]:
+        if arg.lower().endswith(".tachrang") and Path(arg).is_file():
+            QtCore.QTimer.singleShot(0, lambda a=arg: win.mo_du_an(a))
+            break
     sys.exit(app.exec())
 
 

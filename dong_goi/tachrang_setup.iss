@@ -28,6 +28,8 @@ OutputBaseFilename=TachRang_Setup_{#PhienBan}
 SetupIconFile=tachrang.ico
 UninstallDisplayIcon={app}\tachrang.ico
 WizardStyle=modern
+; Hien giay phep Apache 2.0 trong trinh cai dat
+LicenseFile={#ThuMucNguon}\LICENSE
 Compression=lzma2/fast
 SolidCompression=no
 LZMAUseSeparateProcess=yes
@@ -57,6 +59,10 @@ Source: "{#ThuMucNguon}\requirements.txt"; DestDir: "{app}"; Components: core
 Source: "{#ThuMucNguon}\TachRang.bat"; DestDir: "{app}"; Components: core
 Source: "{#ThuMucNguon}\TachRang_console.bat"; DestDir: "{app}"; Components: core
 Source: "{#ThuMucNguon}\HUONG-DAN.txt"; DestDir: "{app}"; Components: core
+; Giay phep Apache 2.0 + ghi cong ben thu ba (bat buoc kem theo khi phan phoi)
+Source: "{#ThuMucNguon}\LICENSE"; DestDir: "{app}"; Components: core
+Source: "{#ThuMucNguon}\NOTICE"; DestDir: "{app}"; Components: core
+Source: "{#ThuMucNguon}\README.md"; DestDir: "{app}"; Components: core
 Source: "tachrang.ico"; DestDir: "{app}"; Components: core
 Source: "{#ThuMucNguon}\models\DentalSegmentator\*"; DestDir: "{app}\models\DentalSegmentator"; Flags: recursesubdirs createallsubdirs; Components: dentseg
 Source: "{#ThuMucNguon}\models\UniversalLab\*"; DestDir: "{app}\models\UniversalLab"; Flags: recursesubdirs createallsubdirs; Components: dentseg

@@ -1489,6 +1489,41 @@ def classify_totalseg(name: str) -> str:
     return "other"
 
 
+def tat_thong_ke_totalseg() -> bool:
+    """CHẶN TotalSegmentator gửi thống kê sử dụng ẩn danh (mặc định bật) — 3 lớp:
+
+    1. Ghi ``send_usage_stats = false`` vào ``<TOTALSEG_HOME_DIR|~/.totalsegmentator>/config.json``
+       (cách chính thức của tác giả) — bền qua các lần chạy, kể cả khi dùng CLI ngoài.
+    2. Thay hàm ``send_usage_stats`` / ``send_usage_stats_application`` trong
+       ``totalsegmentator.config`` VÀ bản đã import vào ``python_api`` bằng hàm rỗng
+       -> dù config bị bản mới ghi đè cũng không có request nào được tạo.
+    3. Không bao giờ gọi các task cần license (không có gói ``license_number``).
+    Trả về True nếu chặn được ít nhất lớp 2.
+    """
+    ok = False
+    try:
+        import totalsegmentator.config as tc
+        try:
+            tc.setup_totalseg()
+            tc.set_config_key("send_usage_stats", False)
+        except Exception as e:                       # thư mục chỉ-đọc... vẫn còn lớp 2
+            nhat_ky.log().warning("không ghi được config TotalSegmentator: %s", e)
+
+        def _khong_gui(*_a, **_k):
+            return None
+        tc.send_usage_stats = _khong_gui
+        tc.send_usage_stats_application = _khong_gui
+        try:
+            import totalsegmentator.python_api as api
+            api.send_usage_stats = _khong_gui
+        except Exception:
+            pass
+        ok = True
+    except Exception as e:
+        nhat_ky.log().warning("không chặn được thống kê TotalSegmentator: %s", e)
+    return ok
+
+
 def run_totalseg(pairs, seg_root: Path, device_str: str, include_bones: bool = False,
                  ensure_sinus: bool = False):
     """Chạy TotalSegmentator task 'teeth' từng ca. Trả về [(case, thư mục mask)].
@@ -1500,6 +1535,7 @@ def run_totalseg(pairs, seg_root: Path, device_str: str, include_bones: bool = F
         from totalsegmentator.python_api import totalsegmentator
     except ImportError:
         sys.exit("Thiếu TotalSegmentator. Cài đặt: pip install TotalSegmentator")
+    tat_thong_ke_totalseg()
 
     if device_str == "auto":
         device_str, _, report = auto_config()
