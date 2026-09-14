@@ -13,6 +13,15 @@ from pathlib import Path
 
 faulthandler.enable()
 
+# Console Windows mặc định cp1252 không in được tiếng Việt → ép utf-8/replace
+# (nếu không, print trong _warn sẽ nổ UnicodeEncodeError và hiện thành "Lỗi giao diện")
+for _s in (sys.stdout, sys.stderr):
+    if _s is not None:
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 warnings.filterwarnings("ignore")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -27,11 +36,8 @@ from tachrang.ui import giao_dien
 
 _CFG = cau_hinh.doc_cau_hinh()
 NHIEU_CA = str(_CFG["input_dir"])
-# tên ca test lấy từ env hoặc file cục bộ tests/_ca_local.txt (không commit — dòng 1: tên ca, dòng 2: label)
-_ca_local = Path(__file__).resolve().parent / "_ca_local.txt"
-_dong = _ca_local.read_text(encoding="utf-8").splitlines() if _ca_local.exists() else []
-CA_1 = os.environ.get("TACHRANG_TEST_CA") or str(_CFG["input_dir"] / (_dong[0] if _dong else "ca-mau"))
-CA_LABEL = os.environ.get("TACHRANG_TEST_CA_LABEL") or (_dong[1] if len(_dong) > 1 else "ca-mau")
+CA_1 = os.environ.get("TACHRANG_TEST_CA") or str(_CFG["input_dir"] / "ngo quang hoan")
+CA_LABEL = os.environ.get("TACHRANG_TEST_CA_LABEL", "LE-DINH-LY-1967-DICOM")
 OUT = Path(__file__).resolve().parent / "anh"
 OUT.mkdir(exist_ok=True)
 
@@ -41,7 +47,10 @@ _print = print
 
 
 def print(*a, **k):  # noqa: A001
-    _print(*a, **k)
+    try:
+        _print(*a, **k)
+    except Exception:
+        pass                       # console lạ vẫn không được làm hỏng test
     _print(*a, **k, file=_LOG_F)
     _LOG_F.flush()
 

@@ -16,6 +16,14 @@ def _chuan_bi_moi_truong():
         kho = Path(__file__).resolve().parent.parent / "models" / "totalseg_weights"
         if kho.is_dir():
             os.environ["TOTALSEG_HOME_DIR"] = str(kho)
+    # Console Windows mặc định cp1252: in tiếng Việt sẽ nổ UnicodeEncodeError
+    # → ký tự không in được thay bằng '?' chứ không bao giờ sập chương trình.
+    for s in (sys.stdout, sys.stderr):
+        if s is not None:
+            try:
+                s.reconfigure(errors="replace")
+            except Exception:
+                pass
 
 
 def main():

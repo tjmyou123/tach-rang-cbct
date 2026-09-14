@@ -660,7 +660,9 @@ def run_gui():
                 "Lưu tình trạng đang sửa vào file NHÁP riêng (không đè kết quả gốc).\n"
                 "Tự động lưu nháp mỗi 3 phút khi có thay đổi và khi đóng chương trình.")
             self.btn_khoi_phuc = QtWidgets.QPushButton("↻ Khôi phục bản làm dở")
-            self.btn_khoi_phuc.setToolTip("Mở lại bản nháp đã lưu của ca này để làm tiếp")
+            self.btn_khoi_phuc.setToolTip(
+                "Mở lại bản nháp đã lưu của ca này để làm tiếp.\n"
+                "Chương trình KHÔNG bao giờ tự nạp nháp — chỉ nạp khi bấm nút này.")
             self.btn_khoi_phuc.setEnabled(False)
             row_n.addWidget(self.btn_nhap)
             row_n.addWidget(self.btn_khoi_phuc)
@@ -1016,7 +1018,7 @@ def run_gui():
             self.open_btn.clicked.connect(self.on_open_out)
             self.edit_btn.clicked.connect(self.on_edit)
             self.btn_nhap.clicked.connect(lambda: self.luu_nhap(tu_dong=False))
-            self.btn_khoi_phuc.clicked.connect(self.khoi_phuc_nhap)
+            self.btn_khoi_phuc.clicked.connect(lambda: self.khoi_phuc_nhap(hoi=True))
             self.btn_mo_file.clicked.connect(self.mo_file_nhan)
             self.btn_pick_tren.clicked.connect(lambda: self._chon_scan("tren"))
             self.btn_pick_duoi.clicked.connect(lambda: self._chon_scan("duoi"))
@@ -3120,9 +3122,13 @@ def run_gui():
                 cv.update()
             self._sua_dirty = False
             self._cap_nhat_trang_thai_nhap()
-            # Có bản làm dở của ca này? -> hỏi mở lại để tiếp tục
+            # Có bản làm dở: chỉ BÁO cho biết — KHÔNG tự nạp, không bật hộp thoại.
+            # Người dùng chủ động bấm "↻ Khôi phục bản làm dở" khi muốn mở lại.
             if self.btn_khoi_phuc.isEnabled():
-                QtCore.QTimer.singleShot(300, lambda: self.khoi_phuc_nhap(hoi=True))
+                self.log_write(f"[Nháp] {self.lb_nhap.text()} — chưa nạp; "
+                               "bấm '↻ Khôi phục bản làm dở' khi muốn mở lại.\n")
+                self.statusBar().showMessage(
+                    self.lb_nhap.text() + " — bấm '↻ Khôi phục bản làm dở' khi cần", 8000)
 
         def _nap_ds_vung(self):
             from tachrang.ui.xem_sua import mau_cho_nhan
@@ -3724,7 +3730,12 @@ def run_gui():
                 self.lb_nhap.setText("")
 
         def luu_nhap(self, tu_dong=False):
-            """Lưu tình trạng đang sửa (nhãn + tên + ô tích) vào file nháp riêng."""
+            """Lưu tình trạng đang sửa (nhãn + tên + ô tích) vào file nháp riêng.
+
+            - Tự lưu CHỈ ghi khi có thay đổi mới kể từ lần lưu trước
+              (không ghi lại file lớn vô ích mỗi 3 phút).
+            - Ghi NGUYÊN TỬ: ghi ra file tạm rồi đổi tên, nên bản nháp cũ
+              không bao giờ hỏng dù tắt máy/mất điện giữa chừng."""
             if self.lab is None or self._case_edit is None:
                 if not tu_dong:
                     QtWidgets.QMessageBox.information(
@@ -3736,22 +3747,30 @@ def run_gui():
             import SimpleITK as sitk
             lm, js = self._duong_nhap()
             lm.parent.mkdir(parents=True, exist_ok=True)
+            # tên tạm giữ đuôi .nii.gz để SimpleITK nhận đúng định dạng
+            lm_tam = lm.with_name(lm.name.replace(".lam-do.", ".lam-do.tam."))
+            js_tam = js.with_name(js.name + ".tam")
+            for f in (lm_tam, js_tam):          # dọn tàn dư nếu lần trước bị ngắt
+                f.unlink(missing_ok=True)
             img = sitk.GetImageFromArray(self.lab)
             if self._lm_img is not None:
                 img.CopyInformation(self._lm_img)
-            sitk.WriteImage(img, str(lm), useCompression=True)
+            sitk.WriteImage(img, str(lm_tam), useCompression=True)
             tick = {}
             for r in range(self.ds_vung.count()):
                 it = self.ds_vung.item(r)
                 tick[str(it.data(QtCore.Qt.ItemDataRole.UserRole))] = (
                     it.checkState() == QtCore.Qt.CheckState.Checked)
             t = datetime.datetime.now().strftime("%H:%M %d/%m/%Y")
-            js.write_text(json.dumps(
+            js_tam.write_text(json.dumps(
                 {"case": self._case_edit, "thoi_gian": t,
+                 "shape": [int(x) for x in self.lab.shape],
                  "labels": {str(k): v for k, v in sorted(self.names.items())},
                  "tick": tick},
                 ensure_ascii=False, indent=1), encoding="utf-8")
-            self._nhap_moi_luu = True
+            os.replace(lm_tam, lm)
+            os.replace(js_tam, js)
+            self._sua_dirty = False    # trạng thái hiện tại đã nằm an toàn trong nháp
             self._cap_nhat_trang_thai_nhap()
             self.log_write(f"[Nháp] Đã lưu bản làm dở lúc {t}"
                            f"{' (tự động)' if tu_dong else ''}\n")
@@ -3759,7 +3778,8 @@ def run_gui():
             return True
 
         def khoi_phuc_nhap(self, hoi=True):
-            """Mở lại bản nháp của ca đang mở; cập nhật 3D các vùng có thay đổi."""
+            """Mở lại bản nháp của ca đang mở; cập nhật 3D các vùng có thay đổi.
+            KHÔNG bao giờ được gọi tự động — chỉ chạy khi người dùng bấm nút."""
             if self.lab is None or self._case_edit is None:
                 return False
             import SimpleITK as sitk
@@ -3768,11 +3788,15 @@ def run_gui():
                 return False
             try:
                 data = json.loads(js.read_text(encoding="utf-8"))
-                lab_nhap = sitk.GetArrayFromImage(sitk.ReadImage(str(lm))).astype(np.int16)
             except Exception as e:
                 QtWidgets.QMessageBox.warning(self, "Lỗi", f"Không đọc được bản nháp:\n{e}")
                 return False
-            if tuple(lab_nhap.shape) != tuple(self.lab.shape):
+            # kiểm tra nhanh bằng metadata TRƯỚC khi đọc file nhãn lớn
+            if data.get("case") not in (None, self._case_edit):
+                QtWidgets.QMessageBox.warning(
+                    self, "Không khớp", "Bản nháp thuộc ca khác — không nạp.")
+                return False
+            if "shape" in data and tuple(data["shape"]) != tuple(self.lab.shape):
                 QtWidgets.QMessageBox.warning(
                     self, "Không khớp", "Bản nháp có kích thước khác kết quả hiện tại.")
                 return False
@@ -3785,7 +3809,17 @@ def run_gui():
                     | QtWidgets.QMessageBox.StandardButton.No)
                 if tra_loi != QtWidgets.QMessageBox.StandardButton.Yes:
                     return False
+            try:
+                lab_nhap = sitk.GetArrayFromImage(sitk.ReadImage(str(lm))).astype(np.int16)
+            except Exception as e:
+                QtWidgets.QMessageBox.warning(self, "Lỗi", f"Không đọc được bản nháp:\n{e}")
+                return False
+            if tuple(lab_nhap.shape) != tuple(self.lab.shape):
+                QtWidgets.QMessageBox.warning(
+                    self, "Không khớp", "Bản nháp có kích thước khác kết quả hiện tại.")
+                return False
             self._ap_dung_nhan(lab_nhap, data, "[Nháp] Đã khôi phục bản làm dở")
+            self._sua_dirty = False        # trạng thái đang mở = bản nháp trên đĩa
             self.statusBar().showMessage("Đã khôi phục bản làm dở")
             return True
 
