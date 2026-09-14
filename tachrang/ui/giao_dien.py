@@ -452,6 +452,7 @@ def run_gui():
             def folder_row(label, line_edit):
                 lb = QtWidgets.QLabel(label)
                 lb.setStyleSheet("color:#8a7a63;")
+                lb.setWordWrap(True)          # nhãn dài xuống dòng, không ép panel rộng/cắt chữ
                 lv.addWidget(lb)
                 row = QtWidgets.QHBoxLayout()
                 row.addWidget(line_edit)
@@ -495,7 +496,7 @@ def run_gui():
                 hang_da.addWidget(w)
             hang_da.addStretch(1)
             lv.addLayout(hang_da)
-            folder_row("Thư mục DICOM (mỗi lần 1 bệnh nhân) — chọn xong ảnh hiện ngay:",
+            folder_row("Thư mục DICOM (mỗi lần một bệnh nhân) — chọn xong ảnh hiện ngay:",
                        self.in_edit).clicked.connect(lambda: self._pick(self.in_edit))
             folder_row("Thư mục kết quả (output):", self.out_edit).clicked.connect(
                 lambda: self._pick(self.out_edit))
@@ -584,7 +585,7 @@ def run_gui():
             self.btn_none = QtWidgets.QPushButton("Bỏ hết")
             self.btn_vungmoi = QtWidgets.QPushButton("＋ Vùng mới")
             self.btn_vungmoi.setToolTip("Thêm một vùng trống rồi dùng 'Tô thêm' để vẽ vùng AI bỏ sót")
-            self.btn_gop = QtWidgets.QPushButton("⇄ Gộp vùng...")
+            self.btn_gop = QtWidgets.QPushButton("⇄ Gộp…")
             self.btn_gop.setToolTip("Gộp vùng đang chọn vào một vùng khác — nhanh hơn tô tay\n"
                                     "(ví dụ: ghép mảnh chân răng lạc vào đúng răng của nó)")
             row_c.addWidget(self.btn_all)
@@ -604,14 +605,16 @@ def run_gui():
             row_b.addWidget(self.rb_xem)
             row_b.addWidget(self.rb_to)
             row_b.addWidget(self.rb_xoa)
-            row_b.addWidget(QtWidgets.QLabel("bút mm:"))
+            row_b.addStretch(1)
             self.spin_but = QtWidgets.QDoubleSpinBox()
             self.spin_but.setRange(0.3, 15.0)
             self.spin_but.setValue(2.0)
             self.spin_but.setSingleStep(0.5)
+            self.spin_but.setSuffix(" mm")
+            self.spin_but.setToolTip("Bán kính bút vẽ (mm) — bút cầu 3D ăn cả các lát kề")
             row_b.addWidget(self.spin_but)
             gv.addLayout(row_b)
-            self.cb_bam_sang = QtWidgets.QCheckBox("Bút bám chỗ sáng (răng/xương) — tô nhanh không lẹm")
+            self.cb_bam_sang = QtWidgets.QCheckBox("Bút bám chỗ sáng (răng/xương)")
             self.cb_bam_sang.setChecked(True)
             self.cb_bam_sang.setToolTip(
                 "Khi tô, chỉ những điểm đủ sáng (theo thanh 'Ngưỡng' dưới khung 3D)\n"
@@ -657,25 +660,27 @@ def run_gui():
             self.btn_undo = QtWidgets.QPushButton("↩ Hoàn tác")
             self.btn_undo.setToolTip("Lùi lại nét tô/xóa vừa rồi (Ctrl+Z)")
             self.btn_luu = QtWidgets.QPushButton("💾 Lưu sửa")
-            self.btn_xuat = QtWidgets.QPushButton("⬇ Xuất STL vùng đã tích")
+            self.btn_luu.setToolTip(
+                "Ghi phần đã sửa thành KẾT QUẢ CHÍNH THỨC của ca (đè lên bản AI).\n"
+                "Mở lại ca/dự án sẽ thấy ngay bản này. Bản nháp (làm dở) của ca sẽ được xóa.")
+            self.btn_xuat = QtWidgets.QPushButton("⬇ Xuất STL")
+            self.btn_xuat.setToolTip("Xuất file STL cho các vùng đang TÍCH trong danh sách\n"
+                                     "(tự Lưu sửa trước khi xuất)")
             row_s.addWidget(self.btn_undo)
             row_s.addWidget(self.btn_luu)
             row_s.addWidget(self.btn_xuat)
             gv.addLayout(row_s)
-            # Bản LÀM DỞ: lưu riêng (không đè kết quả gốc) để lần sau mở lại tiếp
+            # Bản LÀM DỞ (nháp): TỠ lưu mỗi 3 phút khi có thay đổi + khi đóng chương trình
+            # (không cần nút lưu tay); KHÔNG bao giờ tự nạp — chỉ nạp khi bấm Khôi phục
             row_n = QtWidgets.QHBoxLayout()
-            self.btn_nhap = QtWidgets.QPushButton("📝 Lưu bản làm dở")
-            self.btn_nhap.setToolTip(
-                "Lưu tình trạng đang sửa vào file NHÁP riêng (không đè kết quả gốc).\n"
-                "Tự động lưu nháp mỗi 3 phút khi có thay đổi và khi đóng chương trình.")
-            self.btn_khoi_phuc = QtWidgets.QPushButton("↻ Khôi phục bản làm dở")
+            self.btn_khoi_phuc = QtWidgets.QPushButton("↻ Khôi phục nháp")
             self.btn_khoi_phuc.setToolTip(
-                "Mở lại bản nháp đã lưu của ca này để làm tiếp.\n"
-                "Chương trình KHÔNG bao giờ tự nạp nháp — chỉ nạp khi bấm nút này.")
+                "Mở lại bản LÀM DỞ của ca này để sửa tiếp.\n"
+                "Bản làm dở được TỠ lưu mỗi 3 phút khi có thay đổi và khi đóng chương trình;\n"
+                "chương trình KHÔNG bao giờ tự nạp — chỉ nạp khi bấm nút này.")
             self.btn_khoi_phuc.setEnabled(False)
-            row_n.addWidget(self.btn_nhap)
             row_n.addWidget(self.btn_khoi_phuc)
-            self.btn_mo_file = QtWidgets.QPushButton("📂 Mở file…")
+            self.btn_mo_file = QtWidgets.QPushButton("📂 Mở file nhãn…")
             self.btn_mo_file.setToolTip(
                 "Nạp một file nhãn .nii.gz đã lưu trước (kết quả gốc, bản làm dở\n"
                 "hay bản sao đã sửa) để chỉnh tiếp trên ca đang mở")
@@ -1026,7 +1031,6 @@ def run_gui():
             self.stop_btn.clicked.connect(self.on_stop)
             self.open_btn.clicked.connect(self.on_open_out)
             self.edit_btn.clicked.connect(self.on_edit)
-            self.btn_nhap.clicked.connect(lambda: self.luu_nhap(tu_dong=False))
             self.btn_khoi_phuc.clicked.connect(lambda: self.khoi_phuc_nhap(hoi=True))
             self.btn_mo_file.clicked.connect(self.mo_file_nhan)
             self.btn_pick_tren.clicked.connect(lambda: self._chon_scan("tren"))
@@ -4001,12 +4005,12 @@ def run_gui():
                     t = json.loads(js.read_text(encoding="utf-8")).get("thoi_gian", "")
                 except Exception:
                     t = ""
-                self.lb_nhap.setText(f"Có bản làm dở lưu lúc {t}" if t
-                                     else "Có bản làm dở đã lưu")
+                self.lb_nhap.setText(f"Có bản làm dở (nháp) tự lưu lúc {t} — chưa nạp" if t
+                                     else "Có bản làm dở (nháp) — chưa nạp")
             else:
                 self.lb_nhap.setText("")
 
-        def luu_nhap(self, tu_dong=False):
+        def luu_nhap(self, tu_dong=True):
             """Lưu tình trạng đang sửa (nhãn + tên + ô tích) vào file nháp riêng.
 
             - Tự lưu CHỈ ghi khi có thay đổi mới kể từ lần lưu trước
@@ -4014,9 +4018,6 @@ def run_gui():
             - Ghi NGUYÊN TỬ: ghi ra file tạm rồi đổi tên, nên bản nháp cũ
               không bao giờ hỏng dù tắt máy/mất điện giữa chừng."""
             if self.lab is None or self._case_edit is None:
-                if not tu_dong:
-                    QtWidgets.QMessageBox.information(
-                        self, "Chưa có ca", "Chưa có ca nào đang mở để lưu.")
                 return False
             if tu_dong and not self._sua_dirty:
                 return False

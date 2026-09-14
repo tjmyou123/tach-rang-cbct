@@ -15,19 +15,19 @@ rời khỏi máy.
 Vào trang **[Releases](../../releases/latest)** và chọn một trong hai:
 
 ### Cách A — Bộ cài đặt (khuyên dùng)
-1. Tải **đủ 4 file** về cùng một thư mục:
-   `TachRang_Setup_1.0.0.exe` + `TachRang_Setup_1.0.0-1.bin` + `-2.bin` + `-3.bin`
-   (bộ cài 4,2 GB phải chia lát — thiếu 1 file .bin là không cài được).
+1. Tải **đủ các file** cùng phiên bản về một thư mục:
+   `TachRang_Setup_<bản>.exe` + các file `TachRang_Setup_<bản>-1.bin`, `-2.bin`, …
+   (bộ cài vài GB phải chia lát — thiếu 1 file .bin là không cài được).
 2. Nháy đúp file **.exe** → chọn thành phần muốn cài → Install.
    - Lần đầu Windows có thể hỏi SmartScreen: **More info → Run anyway**.
    - Không cần quyền Admin; mặc định cài vào `%LocalAppData%\Programs\TachRang`,
-     có thể đổi sang ổ khác (cần ~8 GB trống, nên chừa ≥20 GB).
+     có thể đổi sang ổ khác (cần ~7 GB trống, nên chừa ≥20 GB cho kết quả).
 3. Mở **TachRang** từ Start Menu / Desktop.
 4. Gỡ cài đặt: Settings → Apps → TachRang (kết quả và cấu hình của bạn được giữ lại).
 
 ### Cách B — Bản portable (không cần cài)
 Dành cho máy không muốn chạy bộ cài: nhận thư mục `TachRang_App` qua USB/ổ cứng từ người
-phát hành (7,7 GB — vượt giới hạn file của GitHub nên không có trên Releases), hoặc tự build
+phát hành (~7 GB — vượt giới hạn file của GitHub nên không có trên Releases), hoặc tự build
 từ mã nguồn bằng `python dong_goi/tao_portable.py`. Giải nén/chép vào ổ có ≥20 GB trống rồi
 nháy đúp **`TachRang.bat`**. Muốn xem log lỗi trực tiếp thì chạy `TachRang_console.bat`.
 
@@ -49,27 +49,51 @@ nháy đúp **`TachRang.bat`**. Muốn xem log lỗi trực tiếp thì chạy `
 
 ## 2. Sử dụng
 
-### Tách răng từ CBCT
-1. Mở app → bấm **Chọn thư mục DICOM** — hoặc **kéo-thả** thẳng thư mục/file vào cửa sổ:
-   app tự nhận dạng thư mục DICOM (kể cả thư mục cha nhiều ca — sẽ hỏi chọn ca),
-   file dự án `.tachrang`, bản đồ nhãn `.nii.gz`, scan hàm `.stl/.ply/.obj`.
-2. Ảnh hiện ngay trên 3 mặt cắt. Bấm **Tách răng** — chế độ `auto` tự chọn GPU/CPU
-   và cấu hình phù hợp với máy.
-3. Xong, kết quả tự hiển thị trong khung 3D:
-   - Từng răng đánh số **FDI** (11–48), xương hàm trên/dưới, ống thần kinh.
-   - File STL nằm trong `ket_qua\stl\<tên ca>\` — mở được bằng mọi phần mềm CAD/in 3D.
-4. Tab **Sửa nhãn**: lấp lỗ theo ngưỡng, làm mịn, mọc từ hạt, hoàn tác… nếu muốn tinh chỉnh.
+Giao diện chia 3 bước ở panel trái — **① Dữ liệu → ② Tách tự động → ③ Kiểm tra & chỉnh sửa** —
+bên phải là 3 mặt cắt + khung 3D. Rê chuột lên bất kỳ nút nào đều có chú thích chi tiết.
+
+### ① Nạp dữ liệu
+- Bấm **Chọn…** cạnh ô *Thư mục DICOM* — hoặc **kéo-thả** thẳng vào cửa sổ. App tự nhận dạng:
+  thư mục DICOM (kể cả thư mục cha chứa nhiều ca — sẽ hỏi chọn ca), file dự án `.tachrang`,
+  bản đồ nhãn `.nii.gz`, scan hàm `.stl/.ply/.obj`.
+- Mỗi lần chỉ mở **một bệnh nhân**; ảnh hiện ngay trên 3 mặt cắt. Nếu ca này đã tách trước đó,
+  kết quả cũ tự mở theo.
+
+### ② Tách tự động
+- Chế độ duy nhất: **KẾT HỢP** — xương hàm trên/dưới + ống thần kinh (DentalSegmentator)
+  ghép với từng răng đánh số **FDI 11–48** + xoang hàm (TotalSegmentator).
+- *Thiết bị* để `auto`: app tự đo GPU/VRAM/RAM và chọn cấu hình phù hợp. Bấm **▶ Chạy tách răng**.
+- Xong, kết quả hiện trong khung 3D; file STL nằm ở `ket_qua\stl\<tên ca>\` — mở được
+  bằng mọi phần mềm CAD/in 3D.
+
+### ③ Kiểm tra & chỉnh sửa
+Danh sách vùng (tích = hiện/xuất, nháy đúp = đổi tên), bút **Tô thêm / Xóa bớt** dạng cầu 3D
+(bám chỗ sáng nên không tràn ra mô mềm), công cụ **Lấp ngưỡng / Làm mịn / Mọc từ hạt**,
+**Gộp…** hai vùng, đo khoảng cách/góc trên lát cắt, **Hoàn tác** (Ctrl+Z).
+
+Ba nút liên quan đến lưu — khác nhau rõ ràng:
+
+| Nút | Làm gì |
+|---|---|
+| **💾 Lưu sửa** | Ghi phần đã sửa thành **kết quả chính thức** của ca (`labelmaps\<ca>.nii.gz`). Mở lại ca/dự án sẽ thấy ngay bản này. |
+| **⬇ Xuất STL** | Tự *Lưu sửa* rồi xuất STL cho các vùng đang tích. |
+| **↻ Khôi phục nháp** | Nạp lại **bản làm dở**. Bản làm dở được **tự lưu** mỗi 3 phút khi có thay đổi và khi đóng app (không có nút lưu tay), nhưng **không bao giờ tự nạp** — app chỉ báo “Có bản làm dở…” và chờ bạn bấm. Bấm *Lưu sửa* thì bản làm dở bị xóa (đã thành chính thức). |
+| **📂 Mở file nhãn…** | Nạp một file `.nii.gz` bất kỳ cùng kích thước (bản sao, bản cũ…) vào ca đang mở. |
+
+Thói quen gỏi ý: sửa xong một đợt ưng ý → **Lưu sửa**; đang giữa chừng phải nghỉ → cứ đóng app,
+nháp tự lưu, hôm sau mở dự án rồi bấm *Khôi phục nháp* là tiếp tục đúng chỗ cũ.
 
 ### Dự án — mở lại ca cũ chỉ một cú bấm
 - Mỗi khi nạp một ca, app tự ghi file dự án `<kết quả>\du_an\<tên ca>.tachrang`
   (file nhỏ kiểu con trỏ, giống project của Blue Sky Plan / RealGUIDE — dữ liệu nặng
   vẫn nằm trong thư mục kết quả).
-- Bấm **Gần đây ▾** để mở lại ca đã làm — DICOM + kết quả + scan trở lại nguyên trạng;
-  mục nào có bản làm dở/kết quả sẽ được ghi chú ngay trong menu.
-- **Mở dự án…** / **Lưu dự án** để mở hoặc lưu file `.tachrang` ở nơi khác (USB, ổ mạng…).
-  Nếu thư mục DICOM gốc đã bị xoá, dự án vẫn mở được phần kết quả (CT nền lấy từ
-  `staged_inputs`). Bản làm dở **không bao giờ tự nạp** — chỉ nạp khi bấm
-  *↻ Khôi phục bản làm dở*.
+- Bấm **Gần đây ▾** để mở lại ca đã làm — DICOM + kết quả chính thức + scan trở lại nguyên trạng;
+  mục nào có bản làm dở/kết quả được ghi chú ngay trong menu.
+- **Mở dự án…** / **Lưu dự án** để mở hoặc lưu file `.tachrang` ở nơi khác (USB, ổ mạng…;
+  nhớ chép kèm thư mục kết quả). Nếu thư mục DICOM gốc đã bị xoá, dự án vẫn mở được phần kết quả
+  (CT nền lấy từ `staged_inputs`).
+- Mở dự án **không tự nạp bản làm dở** — cùng luậ tật như trên: bản chính thức hiện trước,
+  bạn quyết định có bấm *↻ Khôi phục nháp* hay không.
 
 ### Ghép chân răng thật vào 3Shape OrthoAnalyzer
 > Máy phải cài sẵn 3Shape OrthoAnalyzer (dữ liệu ở `C:\ProgramData\3Shape\OrthoData`).
@@ -92,6 +116,18 @@ nháy đúp **`TachRang.bat`**. Muốn xem log lỗi trực tiếp thì chạy `
   "output_dir": "ket_qua",
   "logs_dir": "logs"
 }
+```
+
+Thư mục kết quả của mỗi ca:
+
+```
+ket_qua/
+├── stl/<ca>/                 # STL từng răng/xương (+ scan đã căn *_can-CBCT.stl)
+├── labelmaps/<ca>.nii.gz     # bản đồ nhãn CHÍNH THỨC (+ .json tên vùng)
+│   └── <ca>.lam-do.nii.gz    # bản làm dở tự lưu (xóa khi bấm Lưu sửa)
+├── du_an/<ca>.tachrang       # file dự án (con trỏ) cho menu Gần đây
+├── staged_inputs/<ca>.nii.gz # CT đã chuẩn hóa — giúp mở lại kết quả khi mất DICOM gốc
+└── segmentations_*/          # đầu ra thô của AI (tái dùng khi chạy lại)
 ```
 
 ---
@@ -128,6 +164,7 @@ Trọng số TotalSegmentator (răng FDI, xoang, sọ–hàm) tự tải về `~
 | Việc | Lệnh |
 |---|---|
 | Mở giao diện | `python -m tachrang` |
+| Mở thẳng một dự án | `python -m tachrang "ket_qua\du_an\<ca>.tachrang"` |
 | Pipeline dòng lệnh | `python -m tachrang.core.pipeline --help` |
 | Kiểm tra GPU | `python -m tachrang --gpu-probe` (in `1` = có CUDA) |
 | Unit test | `python -m unittest tests.test_sua_nhan -v` |
