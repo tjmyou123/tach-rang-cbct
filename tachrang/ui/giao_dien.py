@@ -501,21 +501,14 @@ def run_gui():
                 lambda: self._pick(self.out_edit))
 
             tieu_de("②  Tách tự động bằng AI")
-            box = QtWidgets.QGroupBox("Chế độ tách")
+            box = QtWidgets.QGroupBox("Chế độ tách: KẾT HỢP")
             bl = QtWidgets.QVBoxLayout(box)
-            self.rb_combo = QtWidgets.QRadioButton(
-                "KẾT HỢP — xương chuẩn + từng răng số FDI (TỐT NHẤT)")
-            self.rb_dent = QtWidgets.QRadioButton(
-                "DentalSegmentator — 2 hàm + khối răng (nhanh)")
-            self.rb_total = QtWidgets.QRadioButton(
-                "TotalSeg — từng răng FDI + xoang + ống TK")
-            self.rb_uni = QtWidgets.QRadioButton(
-                "UniversalLab — răng + răng sữa (máy lạ kém)")
-            self.rb_combo.setChecked(True)
-            bl.addWidget(self.rb_combo)
-            bl.addWidget(self.rb_dent)
-            bl.addWidget(self.rb_total)
-            bl.addWidget(self.rb_uni)
+            lb_mode = QtWidgets.QLabel(
+                "Xương hàm trên/dưới + ống thần kinh chuẩn (DentalSegmentator) "
+                "kết hợp từng răng đánh số FDI + xoang hàm (TotalSegmentator).")
+            lb_mode.setWordWrap(True)
+            lb_mode.setStyleSheet("color:#8a7a63;")
+            bl.addWidget(lb_mode)
 
             dev_row = QtWidgets.QHBoxLayout()
             dev_row.addWidget(QtWidgets.QLabel("Thiết bị:"))
@@ -532,20 +525,11 @@ def run_gui():
             dev_row.addStretch()
             bl.addLayout(dev_row)
 
-            self.cb_bones = QtWidgets.QCheckBox("Xuất thêm xương (TotalSeg: xương hàm dưới TRỌN VẸN + sọ)")
-            self.cb_pulp = QtWidgets.QCheckBox("Xuất thêm tủy từng răng (chỉ TotalSeg)")
+            self.cb_pulp = QtWidgets.QCheckBox("Xuất thêm tủy từng răng")
             self.cb_seg = QtWidgets.QCheckBox("Input đã là kết quả phân đoạn (bỏ qua AI)")
-            bl.addWidget(self.cb_bones)
             bl.addWidget(self.cb_pulp)
             bl.addWidget(self.cb_seg)
             lv.addWidget(box)
-            # Tủy răng có ở TotalSeg và Kết hợp; đánh dấu "xuất thêm xương" chỉ có ở TotalSeg
-            def _cap_nhat_checkbox(_=False):
-                self.cb_pulp.setEnabled(self.rb_total.isChecked() or self.rb_combo.isChecked())
-                self.cb_bones.setEnabled(self.rb_total.isChecked())
-            self.rb_total.toggled.connect(_cap_nhat_checkbox)
-            self.rb_combo.toggled.connect(_cap_nhat_checkbox)
-            _cap_nhat_checkbox()
 
             btn_row = QtWidgets.QHBoxLayout()
             self.run_btn = QtWidgets.QPushButton("▶  Chạy tách răng")
@@ -3056,14 +3040,7 @@ def run_gui():
                             "Lưu ý: mỗi lần chỉ nhận DICOM của MỘT bệnh nhân.")
                     return
 
-            if self.rb_combo.isChecked():
-                model = "combo"
-            elif self.rb_total.isChecked():
-                model = "totalseg"
-            elif self.rb_dent.isChecked():
-                model = "dentseg"
-            else:
-                model = "universallab"
+            model = "combo"           # giao diện chỉ còn chế độ KẾT HỢP (CLI vẫn có đủ --model)
             chuong_trinh, dau = lenh_pipeline()
             args = dau + ["-i", inp, "-o", out,
                           "--device", self.device_box.currentText(), "--model", model]
@@ -3071,9 +3048,7 @@ def run_gui():
                 args.append("--seg-only")
             else:
                 args.append("--single-case")
-            if self.cb_bones.isChecked() and model == "totalseg":
-                args.append("--include-bones")
-            if self.cb_pulp.isChecked() and model in ("totalseg", "combo"):
+            if self.cb_pulp.isChecked():
                 args.append("--include-pulp")
             if self.decimate_box.currentText() != "0":
                 args += ["--decimate", self.decimate_box.currentText()]

@@ -44,8 +44,8 @@ Name: "custom"; Description: "Tuy chon thanh phan"; Flags: iscustom
 
 [Components]
 Name: "core"; Description: "Chuong trinh chinh + Python runtime (bat buoc)"; Types: full custom; Flags: fixed
-Name: "dentseg"; Description: "Model tach rang (DentalSegmentator + UniversalLab, ~1.2 GB)"; Types: full custom
-Name: "totalseg"; Description: "Model xuong so-ham (TotalSegmentator, ~0.6 GB)"; Types: full custom
+Name: "dentseg"; Description: "Model xuong ham + khoi rang (DentalSegmentator, ~0.25 GB)"; Types: full custom
+Name: "totalseg"; Description: "Model rang FDI + xoang + so-ham (TotalSegmentator, ~0.6 GB)"; Types: full custom
 
 [Tasks]
 Name: "desktopicon"; Description: "Tao bieu tuong ngoai man hinh Desktop"; GroupDescription: "Bieu tuong:"
@@ -65,7 +65,6 @@ Source: "{#ThuMucNguon}\NOTICE"; DestDir: "{app}"; Components: core
 Source: "{#ThuMucNguon}\README.md"; DestDir: "{app}"; Components: core
 Source: "tachrang.ico"; DestDir: "{app}"; Components: core
 Source: "{#ThuMucNguon}\models\DentalSegmentator\*"; DestDir: "{app}\models\DentalSegmentator"; Flags: recursesubdirs createallsubdirs; Components: dentseg
-Source: "{#ThuMucNguon}\models\UniversalLab\*"; DestDir: "{app}\models\UniversalLab"; Flags: recursesubdirs createallsubdirs; Components: dentseg
 Source: "{#ThuMucNguon}\models\totalseg_weights\*"; DestDir: "{app}\models\totalseg_weights"; Flags: recursesubdirs createallsubdirs; Components: totalseg
 
 [Dirs]

@@ -113,9 +113,12 @@ nguồn gốc và giấy phép từng model xem mục 4):
 
 ```
 models/
-├── DentalSegmentator/   # nnU-Net 3d_fullres: xương hàm trên/dưới, khối răng, ống TK  (Dot G. et al. 2024)
-└── UniversalLab/        # nnU-Net: từng răng + răng sửa (DCBIA-OrthoLab, chế độ tuỳ chọn)
+└── DentalSegmentator/   # nnU-Net 3d_fullres: xương hàm trên/dưới, khối răng, ống TK  (Dot G. et al. 2024)
 ```
+
+> Giao diện chỉ có **một chế độ tách: KẾT HỢP** (DentalSegmentator + TotalSegmentator).
+> Các model riêng lẻ (`--model dentseg|totalseg|universallab`) vẫn gọi được qua dòng lệnh
+> cho mục đích thực nghiệm; UniversalLab không đi kèm bộ cài — tự tải vào `models/UniversalLab/` nếu cần.
 
 Trọng số TotalSegmentator (răng FDI, xoang, sọ–hàm) tự tải về `~/.totalsegmentator` ở lần chạy đầu
 (cần mạng), hoặc đặt sẵn vào `models/totalseg_weights` + biến môi trường `TOTALSEG_HOME_DIR`.
@@ -153,13 +156,16 @@ TachRang **không tự huấn luyện model**. Phần mềm dùng lại các mod
 công bố trên tạp chí khoa học, chạy chúng trên máy người dùng, rồi **tự viết phần hậu xợ lý**
 (chia khối răng thành từng răng, đánh số FDI, làm mịn STL, căn scan, ghép 3Shape, giao diện).
 
-### 4.1 Ba model đang dùng
+### 4.1 Model đang dùng
+
+Chế độ tách duy nhất trong giao diện — **KẾT HỢP** — chạy hai model đầu; UniversalLab chỉ còn gọi được
+qua dòng lệnh cho mục đích thực nghiệm và **không đi kèm bộ cài**.
 
 | Model (thư mục) | Ai làm ra | Huấn luyện trên dữ liệu gì | Cho ra gì | TachRang dùng để |
 |---|---|---|---|---|
 | **DentalSegmentator** (`models/DentalSegmentator`) | G. Dot, L. Gajny (Université Paris Cité / AP-HP / Arts-et-Métiers) + Kitware SAS; tài trợ FFO & Fondation des Gueules Cassées | nnU-Net v2, **470 ca CT+CBCT** đa trung tâm, kiểm định trên 256 ca từ 7 cơ sở | 5 nhãn: xương hàm trên+sọ, xương hàm dưới, khối răng trên, khối răng dưới, ống thần kinh hàm dưới | Xương + khối răng + ống TK (bền nhất với máy chụp lạ, nhiễu kim loại) — **model chính** |
 | **TotalSegmentator** task `teeth` và `craniofacial_structures` (tự tải vào `~/.totalsegmentator`) | J. Wasserthal và cộng sự, Bệnh viện Đại học Basel (Thụy Sĩ) | nnU-Net; task `teeth` huấn luyện từ bộ dữ liệu **ToothFairy3** (CBCT, Bolelli et al. CVPR 2025); task sọ–mặt theo bài IJOMS 2025 | `teeth`: 77 nhãn — từng răng **FDI 11–48**, tủy từng răng, xoang hàm trái/phải, ống TK, implant/crown/bridge; `craniofacial_structures`: xương hàm dưới trọn vẹn, sọ, xoang | Hạt giống số FDI để chia khối răng của DentalSegmentator thành từng răng; xoang hàm; xương bổ sung |
-| **UniversalLab** (`models/UniversalLab`, tuỳ chọn) | DCBIA-OrthoLab (ĐH Michigan / UNC), extension *Slicer Automated Dental Tools*, module BatchDentalSegmentator | nnU-Net, **513 ca CBCT** gồm cả răng sửa | 55 nhãn: từng răng vĩnh viễn + răng sửa (Universal Numbering), xương hàm, ống TK | Chế độ phụ cho ca có răng sửa; kém bền với CBCT ngoài dải HU chuẩn |
+| **UniversalLab** (`models/UniversalLab`, chỉ CLI, không kèm bộ cài) | DCBIA-OrthoLab (ĐH Michigan / UNC), extension *Slicer Automated Dental Tools*, module BatchDentalSegmentator | nnU-Net, **513 ca CBCT** gồm cả răng sửa | 55 nhãn: từng răng vĩnh viễn + răng sửa (Universal Numbering), xương hàm, ống TK | Thực nghiệm (`--model universallab`); kém bền với CBCT ngoài dải HU chuẩn |
 
 Tất cả đều chạy trên khung **nnU-Net** (Đức, DKFZ) và **PyTorch**. Chế độ mặc định *KẾT HỢP* =
 DentalSegmentator (xương/khối răng chuẩn) + TotalSegmentator `teeth` (số FDI) → thuật toán riêng của

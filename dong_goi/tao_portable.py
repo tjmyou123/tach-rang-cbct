@@ -29,7 +29,7 @@ Kết quả:
   ├── config.json             ← đổi thư mục models/input/output tại đây
   ├── python/                 ← Python + toàn bộ thư viện (~6 GB)
   ├── tachrang/               ← mã nguồn chương trình
-  ├── models/                 ← DentalSegmentator, UniversalLab, totalseg_weights (~1.8 GB)
+  ├── models/                 ← DentalSegmentator, totalseg_weights (~0.9 GB)
   └── CBCT_input/  ket_qua/  logs/   ← thư mục làm việc
 """
 import argparse
@@ -136,10 +136,15 @@ def main():
         print("[3/6] BỎ QUA model AI (--khong-models) — máy đích sẽ tự tải lần đầu (cần mạng).")
     else:
         print("[3/6] Chép model AI …")
-        for ten in ("DentalSegmentator", "UniversalLab"):
+        # Giao diện chỉ có chế độ KẾT HỢP (DentalSegmentator + TotalSegmentator);
+        # UniversalLab (782 MB) chỉ dùng qua CLI --model universallab -> KHÔNG đóng gói
+        for ten in ("DentalSegmentator",):
             src = GOC / "models" / ten
             if src.is_dir():
                 robocopy(src, dich / "models" / ten)
+        thua = dich / "models" / "UniversalLab"
+        if thua.is_dir():
+            shutil.rmtree(thua, ignore_errors=True)   # dọn bản portable cũ còn sót
         ts = Path.home() / ".totalsegmentator"
         if ts.is_dir():
             robocopy(ts, dich / "models" / "totalseg_weights")
