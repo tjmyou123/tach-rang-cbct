@@ -1,0 +1,39 @@
+# ══════════════════════════════════════════════════════════════════
+# DỮ LIỆU BỆNH NHÂN — TUYỆT ĐỐI KHÔNG COMMIT
+# ══════════════════════════════════════════════════════════════════
+CBCT_input/
+data_test/
+ket_qua/
+ket_qua_*/
+ketqua_test/
+thu_nghiem_*/
+backup_*/
+logs/
+staged_inputs/
+tests/anh/
+tests/baseline/
+tests/_ca_local.txt
+
+# ══════════════════════════════════════════════════════════════════
+# Model AI + file khổng lồ (phát hành qua GitHub Releases, không qua git)
+# ══════════════════════════════════════════════════════════════════
+models/
+downloads/
+dong_goi/TachRang_App/
+dong_goi/Output/
+*.whl
+*.nii.gz
+*.stl
+*.dcm
+
+# ══════════════════════════════════════════════════════════════════
+# Môi trường & cache máy cục bộ
+# ══════════════════════════════════════════════════════════════════
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.vscode/
+.pytest_cache/
+config.json
+*.log

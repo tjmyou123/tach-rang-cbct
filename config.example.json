@@ -1,0 +1,7 @@
+{
+ "_ghi_chu": "Đổi tên thành config.json (cạnh TachRang.bat) để đổi thư mục. Đường dẫn tương đối tính từ thư mục gốc dự án; biến môi trường TACHRANG_MODELS/INPUT/OUTPUT/LOGS ưu tiên hơn file này.",
+ "models_dir": "models",
+ "input_dir": "CBCT_input",
+ "output_dir": "ket_qua",
+ "logs_dir": "logs"
+}

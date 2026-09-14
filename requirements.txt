@@ -1,0 +1,16 @@
+# Tách răng CBCT — thư viện cần thiết (Python 3.11, đã kiểm trên Windows)
+# Cài:  pip install -r requirements.txt
+# torch bản CUDA cài RIÊNG trước (hoặc bản CPU nếu máy không có GPU NVIDIA):
+#   pip install torch --index-url https://download.pytorch.org/whl/cu126
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+numpy>=2.0,<3
+scipy>=1.14
+scikit-image>=0.24
+SimpleITK>=2.4
+vtk>=9.3
+PySide6>=6.7
+psutil>=5.9
+nnunetv2>=2.5
+TotalSegmentator>=2.6
+open3d>=0.18          # căn scan hàm (IOS) với răng CBCT — tachrang/core/can_scan.py
+hpsdecode>=1.0        # đọc lưới Tooth_N.dcm của 3Shape — tachrang/core/chan_rang_3shape.py
